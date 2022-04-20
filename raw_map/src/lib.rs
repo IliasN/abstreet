@@ -206,6 +206,7 @@ impl RawMap {
 
     /// (Intersection polygon, polygons for roads, list of labeled polygons to debug)
     #[allow(clippy::type_complexity)]
+    // TODO Remove or rewrite
     pub fn preview_intersection(
         &self,
         id: osm::NodeID,
@@ -235,6 +236,7 @@ impl RawMap {
     }
 
     /// Generate the trimmed `PolyLine` for a single RawRoad by calculating both intersections
+    // TODO Remove
     pub fn trimmed_road_geometry(&self, road: OriginalRoad) -> Result<PolyLine> {
         let mut roads = BTreeMap::new();
         for id in [road.i1, road.i2] {
@@ -260,6 +262,7 @@ impl RawMap {
     }
 
     /// Returns the corrected (but untrimmed) center and total width for a road
+    // TODO Remove or rewrite
     pub fn untrimmed_road_geometry(&self, id: OriginalRoad) -> Result<(PolyLine, Distance)> {
         let road = &self.roads[&id];
         let lane_specs = get_lane_specs_ltr(&road.osm_tags, &self.config);
@@ -367,8 +370,10 @@ pub struct RawRoad {
     /// This is effectively a PolyLine, except there's a case where we need to plumb forward
     /// cul-de-sac roads for roundabout handling. No transformation of these points whatsoever has
     /// happened.
+    // TODO Rename osm_center_points
     pub center_points: Vec<Pt2D>,
     /// Multiply the width of each lane by this ratio, to prevent overlapping roads.
+    // TODO This is stateful and confusing... does it apply to lane_specs_ltr or not?
     pub scale_width: f64,
     pub osm_tags: Tags,
     pub turn_restrictions: Vec<(RestrictionType, OriginalRoad)>,
@@ -378,9 +383,32 @@ pub struct RawRoad {
     /// Is there a tagged crosswalk near each end of the road?
     pub crosswalk_forward: bool,
     pub crosswalk_backward: bool,
+    //// Stuff below here is kinda derived
+
+    // Not strictly necessary to store, but useful to avoid constantly recalculating
+    //pub lane_specs_ltr: Vec<LaneSpec>,
+    // TODO Maybe a method that just looks ta lane_specs_ltr
+    //pub half_width: Distance,
+    // The true center of the road, including sidewalks
+    //pub trimmed_center_pts: PolyLine,
 }
 
 impl RawRoad {
+    pub fn new(osm_center_points: Vec<Pt2D>, osm_tags: Tags) -> Self {
+        Self {
+            center_points: osm_center_points,
+            scale_width: 1.0,
+            osm_tags,
+            turn_restrictions: Vec::new(),
+            complicated_turn_restrictions: Vec::new(),
+            percent_incline: 0.0,
+            // Start assuming there's a crosswalk everywhere, and maybe filter it down
+            // later
+            crosswalk_forward: true,
+            crosswalk_backward: true,
+        }
+    }
+
     // TODO For the moment, treating all rail things as light rail
     pub fn is_light_rail(&self) -> bool {
         self.osm_tags.is_any("railway", vec!["light_rail", "rail"])
@@ -432,6 +460,7 @@ impl RawRoad {
         self.center_points[0].angle_to(*self.center_points.last().unwrap())
     }
 
+    // TODO rename to emphasize untrimmed / original
     pub fn length(&self) -> Distance {
         PolyLine::unchecked_new(self.center_points.clone()).length()
     }
@@ -464,11 +493,23 @@ pub struct RawIntersection {
     pub intersection_type: IntersectionType,
     pub elevation: Distance,
 
-    // true if src_i matches this intersection (or the deleted/consolidated one, whatever)
+    // true if id.i1 matches this intersection (or the deleted/consolidated one, whatever)
     pub trim_roads_for_merging: BTreeMap<(osm::WayID, bool), Pt2D>,
+    // Derived
+    //pub polygon: Polygon,
 }
 
 impl RawIntersection {
+    pub fn new(point: Pt2D, intersection_type: IntersectionType) -> Self {
+        Self {
+            point,
+            intersection_type,
+            // Filled out later
+            elevation: Distance::ZERO,
+            trim_roads_for_merging: BTreeMap::new(),
+        }
+    }
+
     fn is_border(&self) -> bool {
         self.intersection_type == IntersectionType::Border
     }
