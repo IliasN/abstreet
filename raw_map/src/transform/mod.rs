@@ -5,6 +5,7 @@ use crate::RawMap;
 mod collapse_intersections;
 mod dual_carriageways;
 mod find_short_roads;
+mod geometry;
 mod merge_short_road;
 mod remove_disconnected;
 mod shrink_roads;
@@ -50,6 +51,10 @@ impl RawMap {
         timer.start("shrinking overlapping roads");
         shrink_roads::shrink(self, timer);
         timer.stop("shrinking overlapping roads");
+
+        timer.start("finalize geometry");
+        geometry::finalize_geometry(self, timer);
+        timer.stop("finalize geometry");
 
         timer.stop("simplify RawMap");
     }

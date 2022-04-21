@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use abstio::{CityName, MapName};
 use abstutil::{deserialize_btreemap, serialize_btreemap, Tags};
-use geom::{Angle, Distance, GPSBounds, PolyLine, Polygon, Pt2D};
+use geom::{Angle, Circle, Distance, GPSBounds, PolyLine, Polygon, Pt2D};
 
 pub use self::geometry::intersection_polygon;
 pub use self::lane_specs::get_lane_specs_ltr;
@@ -386,11 +386,11 @@ pub struct RawRoad {
     //// Stuff below here is kinda derived
 
     // Not strictly necessary to store, but useful to avoid constantly recalculating
-    //pub lane_specs_ltr: Vec<LaneSpec>,
-    // TODO Maybe a method that just looks ta lane_specs_ltr
-    //pub half_width: Distance,
+    pub lane_specs_ltr: Vec<LaneSpec>,
+    // TODO Maybe a method that just looks at lane_specs_ltr
+    pub half_width: Distance,
     // The true center of the road, including sidewalks
-    //pub trimmed_center_pts: PolyLine,
+    pub trimmed_center_pts: PolyLine,
 }
 
 impl RawRoad {
@@ -406,6 +406,10 @@ impl RawRoad {
             // later
             crosswalk_forward: true,
             crosswalk_backward: true,
+            // Dummy initial values; these're filled out by a transformation
+            lane_specs_ltr: Vec::new(),
+            half_width: Distance::ZERO,
+            trimmed_center_pts: PolyLine::dummy(),
         }
     }
 
@@ -496,7 +500,7 @@ pub struct RawIntersection {
     // true if id.i1 matches this intersection (or the deleted/consolidated one, whatever)
     pub trim_roads_for_merging: BTreeMap<(osm::WayID, bool), Pt2D>,
     // Derived
-    //pub polygon: Polygon,
+    pub polygon: Polygon,
 }
 
 impl RawIntersection {
@@ -507,6 +511,7 @@ impl RawIntersection {
             // Filled out later
             elevation: Distance::ZERO,
             trim_roads_for_merging: BTreeMap::new(),
+            polygon: Circle::new(Pt2D::new(0.0, 0.0), Distance::meters(1.0)).to_polygon(),
         }
     }
 
