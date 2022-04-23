@@ -67,6 +67,12 @@ struct State {
     // uber-turn at nearby intersections.
     uber_turn_neighbors: Vec<IntersectionID>,
 
+    #[serde(
+        serialize_with = "serialize_btreemap",
+        deserialize_with = "deserialize_btreemap"
+    )]
+    leader_eta: BTreeMap<Request, Time>,
+
     signal: Option<SignalState>,
 }
 
@@ -115,6 +121,7 @@ impl IntersectionSimState {
                 reserved: BTreeSet::new(),
                 uber_turn_neighbors: Vec::new(),
                 signal: None,
+                leader_eta: BTreeMap::new(),
             };
             if i.is_traffic_signal() {
                 state.signal = Some(SignalState::new(i.id, Time::START_OF_DAY, map, scheduler));
@@ -391,6 +398,19 @@ impl IntersectionSimState {
     ) -> bool {
         #![allow(clippy::logic_bug)] // Remove once TODO below is taken care of
         let req = Request { agent, turn };
+
+        if let Some(eta) = self
+            .state
+            .get_mut(&turn.parent)
+            .unwrap()
+            .leader_eta
+            .remove(&req)
+        {
+            // When they're late, it's because of a slow laggy head. Conflicting turns would've
+            // been blocked anyway.
+            //info!("{} predicted ETA {}, actually {}", req.agent, eta, now);
+        }
+
         let entry = self
             .state
             .get_mut(&turn.parent)
@@ -451,7 +471,7 @@ impl IntersectionSimState {
         } else if let Some(signal) = map.maybe_get_traffic_signal(turn.parent) {
             self.traffic_signal_policy(&req, map, signal, speed, now, Some(scheduler))
         } else if let Some(sign) = map.maybe_get_stop_sign(turn.parent) {
-            self.stop_sign_policy(&req, map, sign, now, scheduler)
+            self.stop_sign_policy(&req, map, sign, speed, now, scheduler)
         } else {
             unreachable!()
         };
@@ -642,6 +662,15 @@ impl IntersectionSimState {
             panic!("After live map edits, intersection state refers to deleted turns!");
         }
     }
+
+    // Not calling this for pedestrians right now.
+    // This is "best effort". If we get something wrong, somebody might start a turn and cut off an
+    // approaching vehicle
+    pub fn approaching_leader(&mut self, agent: AgentID, turn: TurnID, eta: Time) {
+        // Any validation checks needed? Duplicate?
+        let state = self.state.get_mut(&turn.parent).unwrap();
+        state.leader_eta.insert(Request { agent, turn }, eta);
+    }
 }
 
 // Queries
@@ -808,6 +837,7 @@ impl IntersectionSimState {
         req: &Request,
         map: &Map,
         sign: &ControlStopSign,
+        speed: Speed,
         now: Time,
         scheduler: &mut Scheduler,
     ) -> bool {
@@ -838,8 +868,30 @@ impl IntersectionSimState {
         // If a case #1 could've started by now, then they would have. Since they didn't, they must
         // be blocked.
 
-        // TODO Make sure we can optimistically finish this turn before an approaching
-        // higher-priority vehicle wants to begin.
+        // Can we optimistically finish this turn before an approaching higher-priority vehicle
+        // wants to begin?
+
+        let turn = map.get_t(req.turn);
+        let expected_finish = now + turn.geom.length() / speed;
+        // TODO Same logic for tsigs
+        for (other_req, eta) in &self.state[&req.turn.parent].leader_eta {
+            if expected_finish < *eta {
+                continue;
+            }
+            if map.get_t(other_req.turn).conflicts_with(turn) {
+                // Now we need to prioritize between the two.
+                let their_priority = sign.get_priority(other_req.turn, map);
+                // If the priorities are equal, we should go -- we're ready to start; they're still
+                // approaching.
+                if our_priority < their_priority {
+                    info!(
+                        "{} is yielding to approaching {}",
+                        req.agent, other_req.agent
+                    );
+                    return false;
+                }
+            }
+        }
 
         true
     }

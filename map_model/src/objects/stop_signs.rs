@@ -158,6 +158,8 @@ impl ControlStopSign {
     pub fn get_priority(&self, turn: TurnID, map: &Map) -> TurnPriority {
         match map.get_t(turn).turn_type {
             TurnType::SharedSidewalkCorner => TurnPriority::Protected,
+            // TODO This is correct, but we'll need to unmark a bunch of crosswalks by default to
+            // get the new behavior
             TurnType::Crosswalk => TurnPriority::Protected,
             TurnType::UnmarkedCrossing => TurnPriority::Yield,
             _ => {
