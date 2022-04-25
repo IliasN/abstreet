@@ -312,6 +312,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "celes"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c7030e9a123aeed72ba38cb8d36b70ba973e19f7a52ce96c92d03bbc4f47310"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "cesu8"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2042,6 +2051,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
 
 [[package]]
+name = "locale-codes"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1f4cc9d2da40c19763d5dd398baf388f2cc1473ca3d53c578c75e9ad0402324"
+dependencies = [
+ "lazy_static",
+ "log",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2675,6 +2697,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "osm2lanes"
+version = "0.1.0"
+source = "git+https://github.com/a-b-street/osm2lanes#907c5f259bdf3266a4cfb1b11b4e29f09f30f586"
+dependencies = [
+ "celes",
+ "locale-codes",
+ "log",
+ "serde",
+]
+
+[[package]]
 name = "osm_viewer"
 version = "0.1.0"
 dependencies = [
@@ -3094,6 +3127,7 @@ dependencies = [
  "geom",
  "kml",
  "log",
+ "osm2lanes",
  "petgraph",
  "serde",
  "serde_json",

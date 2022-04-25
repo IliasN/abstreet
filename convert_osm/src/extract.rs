@@ -476,6 +476,9 @@ fn is_road(tags: &mut Tags, opts: &Options, name: &MapName) -> bool {
                 (false, false) => "none",
             };
             tags.insert(osm::SIDEWALK, value);
+            // Remove conflicting values
+            tags.remove("sidewalk:right");
+            tags.remove("sidewalk:left");
         } else if tags.is_any(osm::HIGHWAY, vec!["motorway", "motorway_link"])
             || tags.is_any("junction", vec!["intersection", "roundabout"])
             || tags.is("foot", "no")
